@@ -163,4 +163,4 @@ if __name__ == "__main__":
 
     validator = CapeValidator(args.pe_file, d0, buys, sells, d1, args.index)
     validator.calculate_worth_vs_time()
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
