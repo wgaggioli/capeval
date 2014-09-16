@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import pickle
 from datetime import datetime, timedelta
@@ -36,13 +35,9 @@ class Investor(object):
         self.cash = 0.
 
     def react_to_pe(self, pe_ratio, market_price):
-        if self.shares and pe_ratio >= self.sell_at:
-            print('Investor {} is selling at {} due to pe {}'.format(
-                self.sell_at, market_price, pe_ratio))
+        if self.shares and pe_ratio > self.sell_at:
             self.sell_all(market_price)
         elif self.cash and pe_ratio <= self.buy_at:
-            print('Investor {} is buying at {} due to pe {}'.format(
-                self.buy_at, market_price, pe_ratio))
             self.buy_all(market_price)
 
 
@@ -66,6 +61,7 @@ class CapeValidator(object):
         size = (len(self.investors), len(self.pe_array))
         self.worth_matrix = numpy.empty(size)
         self.shares_matrix = numpy.empty(size)
+        self.cash_matrix = numpy.empty(size)
 
     @property
     def _cache_filename(self):
@@ -120,23 +116,24 @@ class CapeValidator(object):
             else:
                 raise
         price = df['Adj Close'][0]
+        print('Market Price of {} on {}: {}'.format(self.index, date, price))
         self.index_cache[date] = price
+        return price
 
     def calculate_worth_vs_time(self):
         i = 0
         for date, pe_ratio in self.pe_array:
             market_price = self._get_market_price(date)
-            print('Market Price of {} on {}: {}'.format(self.index, date,
-                                                        market_price))
             for j, investor in enumerate(self.investors):
-                investor.get_paid()  # TODO: fix income hack
+                investor.get_paid()
                 investor.react_to_pe(pe_ratio, market_price)
                 self.worth_matrix[j][i] = investor.get_net_worth(market_price)
                 self.shares_matrix[j][i] = investor.shares
+                self.cash_matrix[j][i] = investor.cash
             i += 1
         self.save_index_cache()
 
-    def plot_worth_vs_time(self, worth_matrix, names=None):
+    def plot_worth_vs_time(self, names=None):
         pass
 
 
@@ -163,4 +160,5 @@ if __name__ == "__main__":
 
     validator = CapeValidator(args.pe_file, d0, buys, sells, d1, args.index)
     validator.calculate_worth_vs_time()
+    validator.plot_worth_vs_time()
     # import ipdb; ipdb.set_trace()
