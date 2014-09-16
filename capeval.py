@@ -2,9 +2,10 @@ import argparse
 import os
 import pickle
 from datetime import datetime, timedelta
+from matplotlib.dates import YearLocator, DateFormatter, MonthLocator
 
 import numpy
-
+from matplotlib import pyplot as plt
 from pandas.io.data import get_data_yahoo
 
 
@@ -116,7 +117,6 @@ class CapeValidator(object):
             else:
                 raise
         price = df['Adj Close'][0]
-        print('Market Price of {} on {}: {}'.format(self.index, date, price))
         self.index_cache[date] = price
         return price
 
@@ -134,7 +134,39 @@ class CapeValidator(object):
         self.save_index_cache()
 
     def plot_worth_vs_time(self, names=None):
-        pass
+        if names is None:
+            names = [
+                'Investor ({:0.2f},{:0.2f})'.format(inv.buy_at, inv.sell_at)
+                for inv in self.investors]
+        dates = [x[0] for x in self.pe_array]
+        year = YearLocator()
+        date_fmt = DateFormatter('%Y')
+        plt.xkcd()
+
+        # investor worth plots
+        fig = plt.figure()
+        ax = fig.gca()
+        lines = []
+        for i in range(len(self.investors)):
+            result = ax.plot_date(dates, self.worth_matrix[i], '-')
+            lines.append(result[0])
+        ax.xaxis.set_major_locator(year)
+        ax.xaxis.set_major_formatter(date_fmt)
+        # ax.xaxis.set_minor_formatter(MonthLocator())
+        ax.autoscale_view()
+        ax.legend(lines, names, 'upper left')
+        fig.autofmt_xdate()
+
+        fig_pe = plt.figure()
+        ax_pe = fig_pe.gca()
+        ax_pe.plot_date(dates, [x[1] for x in self.pe_array], '-')
+        ax_pe.xaxis.set_major_locator(year)
+        ax_pe.xaxis.set_major_formatter(date_fmt)
+        ax_pe.autoscale_view()
+        ax_pe.set_title('PE Ratio vs. Time')
+        fig_pe.autofmt_xdate()
+
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -151,7 +183,7 @@ if __name__ == "__main__":
     buys = [float(b) for b in args.buy_thresholds.split(',')]
     sells = args.sell_thresholds
     if sells:
-        sells = map(float, sells.split(','))
+        sells = [float(b) for b in sells.split(',')]
     d0 = datetime.strptime(args.start_date, '%m/%Y')
     if args.end_date:
         d1 = datetime.strptime(args.end_date, '%m/%Y')
@@ -161,4 +193,3 @@ if __name__ == "__main__":
     validator = CapeValidator(args.pe_file, d0, buys, sells, d1, args.index)
     validator.calculate_worth_vs_time()
     validator.plot_worth_vs_time()
-    # import ipdb; ipdb.set_trace()
