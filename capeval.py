@@ -103,6 +103,8 @@ class CapeValidator(object):
             pickle.dump(self.index_cache, fp)
 
     def _get_market_price(self, date, try_next=2):
+        while date.weekday() > 4:
+            date -= timedelta(1)
         if date in self.index_cache:
             return self.index_cache[date]
         try:
@@ -111,10 +113,8 @@ class CapeValidator(object):
             # try to account for holidays and wutnot
             if try_next:
                 date1 = date - timedelta(1)
-                while date1.weekday() > 4:
-                    date1 -= timedelta(1)
                 return self._get_market_price(date1, try_next - 1)
-            else:
+            else:  # pragma no cover
                 raise
         price = df['Adj Close'][0]
         self.index_cache[date] = price

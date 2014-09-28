@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import unittest
 import numpy
 
@@ -142,6 +142,30 @@ class TestCapeValidator(unittest.TestCase):
             self.assertAlmostEqual(val1, val2, places=places, msg=msg,
                                    **kwargs)
             index += 1
+
+    def test_get_market_price(self):
+        self.validator.index_cache = {}  # reset cache
+        date1 = datetime(2014, 9, 18)
+        price = self.validator._get_market_price(date1)
+        self.assertAlmostEqual(price, 2011.36)
+        self.assertIn(date1, self.validator.index_cache)
+        self.assertEqual(self.validator.index_cache[date1], price)
+
+        date2 = datetime(2014, 9, 20)  # saturday, saturday
+        price = self.validator._get_market_price(date2)
+        self.assertAlmostEqual(price, 2010.40)
+        self.assertNotIn(date2, self.validator.index_cache)
+        date2_1 = date2 - timedelta(1)
+        self.assertIn(date2_1, self.validator.index_cache)
+        self.assertEqual(self.validator.index_cache[date2_1], price)
+
+        date3 = datetime(2014, 7, 6)  # sunday to a holiday
+        price = self.validator._get_market_price(date3)
+        self.assertAlmostEqual(price, 1985.44)
+        self.assertNotIn(date3, self.validator.index_cache)
+        date3_1 = date3 - timedelta(3)
+        self.assertIn(date3_1, self.validator.index_cache)
+        self.assertEqual(self.validator.index_cache[date3_1], price)
 
     def test_worth_calculation(self):
         self.validator.calculate_worth_vs_time()
