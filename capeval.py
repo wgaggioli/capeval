@@ -10,7 +10,18 @@ from pandas.io.data import get_data_yahoo
 
 
 class Investor(object):
+    """Represents a single investor with initial cash, income, and
+    set buy/sell thresholds.
 
+    :param buy_at   float   if the pe ratio is less than or equal to this
+      value, the investor will buy all the shares she can
+    :param sell_at  float   if the pe ratio is greater than this value, the
+      investor will sell all her shares (if any)
+    :param init_cash float  initial cash
+    :param shares   float   initial shares
+    :param income   float   cash increase on call to `get_paid`
+
+    """
     def __init__(self, buy_at, sell_at=None, init_cash=10000., shares=0.,
                  income=2000.):
         self.buy_at = buy_at
@@ -22,20 +33,27 @@ class Investor(object):
         self.income = income
 
     def get_paid(self):
+        """Receive the income"""
         self.cash += self.income
 
     def get_net_worth(self, market_price):
+        """Total net worth is cash + worth of shares"""
         return self.cash + self.shares * market_price
 
     def sell_all(self, market_price):
+        """Convert all stocks to cash"""
         self.cash += market_price * self.shares
         self.shares = 0.
 
     def buy_all(self, market_price):
+        """Buy all shares I can afford"""
         self.shares += self.cash / market_price
         self.cash = 0.
 
     def react_to_pe(self, pe_ratio, market_price):
+        """React to P/E depending on investor thresholds (buy, sell, or hold)
+
+        """
         if self.shares and pe_ratio > self.sell_at:
             self.sell_all(market_price)
         elif self.cash and pe_ratio <= self.buy_at:
@@ -43,6 +61,22 @@ class Investor(object):
 
 
 class CapeValidator(object):
+    """
+    Compares the performance of a suite of investors with different buy/sell
+    thresholds for CAPE ratio.
+
+    :param pe_data_file str csv of pe_data. TODO: write script to download
+    :param start_date   datetime    datetime at which to start analysis
+    :param buy_thresholds   [float, ...]    list of buy thresholds for suite
+        of investors. Each entry will instantiate a new investor.
+    :param sell_thresholds [float, ...]     list of sell thresholds
+        corresponding to `buy_thresholds`. If None, will be equal to
+        `buy_thresholds`.
+    :param end_date datetime    datetime at which to stop analysis. If None,
+        will go to current day.
+    :param index    str     stock symbol of index to invest in.
+
+    """
     def __init__(self, pe_data_file, start_date, buy_thresholds,
                  sell_thresholds=None, end_date=None, index='^GSPC'):
         if sell_thresholds is None:
@@ -79,6 +113,7 @@ class CapeValidator(object):
         return date
 
     def load_pe_array(self, pe_data_file, start_date, end_date):
+        """Load the CAPE data from the specified file"""
         with open(pe_data_file) as fp:
             for line in fp:
                 line = line.strip()
@@ -90,37 +125,51 @@ class CapeValidator(object):
                         self.pe_array.append([date, pe])
 
     def init_investors(self, buy_thresholds, sell_thresholds):
+        """Initialize Investor instances from threshold lists"""
         for b, s in zip(buy_thresholds, sell_thresholds):
             self.investors.append(Investor(b, s))
 
     def load_index_cache(self):
+        """Load the cache for the specified index, if available"""
         if os.path.exists(self._cache_filename):
             with open(self._cache_filename, 'rb') as fp:
                 self.index_cache = pickle.load(fp)
 
     def save_index_cache(self):
+        """Save the cache to disk"""
         with open(self._cache_filename, 'wb') as fp:
             pickle.dump(self.index_cache, fp)
 
     def _get_market_price(self, date, try_next=2):
+        """Get the market price for the given date from yahoo or the cache.
+
+        Tries to account for holidays by stepping backwards through time when
+        the specified date is not found. Intermittent network errors may cause
+        unexpected results here.
+
+        """
         while date.weekday() > 4:
             date -= timedelta(1)
         if date in self.index_cache:
             return self.index_cache[date]
         try:
             df = get_data_yahoo(self.index, date, date)
-        except OSError:
+            price = df['Adj Close'][0]
+        except (IndexError, OSError):
             # try to account for holidays and wutnot
             if try_next:
                 date1 = date - timedelta(1)
                 return self._get_market_price(date1, try_next - 1)
             else:  # pragma no cover
                 raise
-        price = df['Adj Close'][0]
         self.index_cache[date] = price
         return price
 
     def calculate_worth_vs_time(self):
+        """Calculate the worth, shares, and cash of all the investors across
+        the specified time interval
+
+        """
         i = 0
         for date, pe_ratio in self.pe_array:
             market_price = self._get_market_price(date)
@@ -134,6 +183,11 @@ class CapeValidator(object):
         self.save_index_cache()
 
     def plot_worth_vs_time(self, names=None):
+        """Plot the worth of each investor vs. time. If names is specified,
+        will use these names in the legend. Otherwise, will name the investors
+        based off their thresholds.
+
+        """
         if names is None:
             names = [
                 'Investor ({:0.2f},{:0.2f})'.format(inv.buy_at, inv.sell_at)
