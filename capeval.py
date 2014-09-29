@@ -156,17 +156,22 @@ class CapeValidator(object):
         ax.autoscale_view()
         ax.legend(lines, names, 'upper left')
         fig.autofmt_xdate()
+        return fig
 
-        fig_pe = plt.figure()
-        ax_pe = fig_pe.gca()
+    def plot_pe_ratio(self):
+        dates = [x[0] for x in self.pe_array]
+        year = YearLocator()
+        date_fmt = DateFormatter('%Y')
+
+        fig = plt.figure()
+        ax_pe = fig.gca()
         ax_pe.plot_date(dates, [x[1] for x in self.pe_array], '-')
         ax_pe.xaxis.set_major_locator(year)
         ax_pe.xaxis.set_major_formatter(date_fmt)
         ax_pe.autoscale_view()
         ax_pe.set_title('PE Ratio vs. Time')
-        fig_pe.autofmt_xdate()
-
-        plt.show()
+        fig.autofmt_xdate()
+        return fig
 
 
 if __name__ == "__main__":
@@ -192,4 +197,7 @@ if __name__ == "__main__":
 
     validator = CapeValidator(args.pe_file, d0, buys, sells, d1, args.index)
     validator.calculate_worth_vs_time()
+    import ipdb; ipdb.set_trace()
     validator.plot_worth_vs_time()
+    # validator.plot_pe_ratio()
+    plt.show()
