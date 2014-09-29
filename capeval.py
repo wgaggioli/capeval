@@ -213,6 +213,10 @@ class CapeValidator(object):
         return fig
 
     def plot_pe_ratio(self):
+        """
+        Plot the CAPE values for the time interval in question.
+         
+        """
         dates = [x[0] for x in self.pe_array]
         year = YearLocator()
         date_fmt = DateFormatter('%Y')
